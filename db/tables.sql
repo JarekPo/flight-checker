@@ -14,5 +14,5 @@ CREATE TABLE notifications (
 	script_name varchar(255) NOT NULL,
 	message text NOT NULL,
 	inserted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-	CONSTRAINT notifications_unique UNIQUE (topic, message)
-)
+	CONSTRAINT notifications_unique UNIQUE (topic, message, script_name)
+);
