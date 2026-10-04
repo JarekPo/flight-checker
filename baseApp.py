@@ -1,3 +1,6 @@
+import argparse
+
+
 class BaseApp:
     def __init__(self):
         # Your initialization code
@@ -15,9 +18,22 @@ class BaseApp:
         # Return False to let any exceptions propagate, or True to suppress them
         return False
 
+    def add_args(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--verbose',
+            action='store_true',
+            help='Show extra output.',
+        )
+
+        return parser
+
     def main(self):
         # Your main application logic here
         pass
 
     def run(self):
+        parser = self.add_args()
+        self.args = parser.parse_args()
+
         self.main()
