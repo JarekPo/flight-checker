@@ -5,13 +5,7 @@ import httpx
 from baseApp import BaseApp
 from connections import PROVIDER_API
 from db.connection import get_db_connection
-from notifications import send_notification
-
-update_query = """
-UPDATE availabilities
-SET last_date = %(last_date)s
-WHERE from_airport = %(from_airport)s AND to_airport = %(to_airport)s
-"""
+from notifications import save_notification, send_notification
 
 
 class Availabilities(BaseApp):
@@ -22,11 +16,15 @@ class Availabilities(BaseApp):
             required=True,
             help='Departure airport IATA code',
         )
-
         parser.add_argument(
             '--to_a',
             required=True,
             help='Arrival airport IATA code',
+        )
+        parser.add_argument(
+            '--topic',
+            required=True,
+            help='Notification topic',
         )
         return parser
 
@@ -50,17 +48,14 @@ class Availabilities(BaseApp):
         return None
 
     def main(self):
-        # args = self.add_args
         from_airport = self.args.from_a
         to_airport = self.args.to_a
+        topic = self.args.topic
         params = {'from_airport': from_airport, 'to_airport': to_airport}
         result = self.get_last_date(params)
         current_last_date = result['last_date'] if result is not None else None
-
         api_availabilities = self.get_availabilities(from_airport, to_airport)
-
-        api_last_date_string = api_availabilities[-10] if api_availabilities else None
-
+        api_last_date_string = api_availabilities[-1] if api_availabilities else None
         api_last_date = datetime.date.fromisoformat(api_last_date_string) if api_last_date_string else None
 
         update_params = {
@@ -84,9 +79,29 @@ class Availabilities(BaseApp):
                 result = cur.fetchone()
                 if result is not None:
                     print('Updated last_date:', result['last_date'])
-                    send_notification(
+                    notification_message = (
                         f'New availability found for {from_airport} to {to_airport}: {result["last_date"]}'
                     )
+                    send_notification(topic, notification_message)
+                    save_notification(topic, notification_message, self.__class__.__name__)
+        elif not current_last_date and api_last_date:
+            with get_db_connection() as conn, conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO availabilities (from_airport, to_airport, last_date)
+                    VALUES (%(from_airport)s, %(to_airport)s, %(last_date)s)
+                    RETURNING last_date
+                    """,
+                    params=update_params,
+                )
+                result = cur.fetchone()
+                if result is not None:
+                    notification_message = (
+                        f'New availability found for {from_airport} to {to_airport}: {result["last_date"]}'
+                    )
+                    print('Inserted last_date:', result['last_date'])
+                    send_notification(topic, notification_message)
+                    save_notification(topic, notification_message, self.__class__.__name__)
 
 
 if __name__ == '__main__':
