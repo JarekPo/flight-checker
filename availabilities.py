@@ -81,7 +81,7 @@ class Availabilities(BaseApp):
                 )
                 result = cur.fetchone()
                 if result is not None:
-                    logger.info(f'Updated last_date: {result["last_date"]}')
+                    logger.info('Updated last_date: %s', result['last_date'])
                     notification_message = (
                         f'New availability found for {from_airport} to {to_airport}: {result["last_date"]}'
                     )
@@ -102,7 +102,7 @@ class Availabilities(BaseApp):
                     notification_message = (
                         f'New availability found for {from_airport} to {to_airport}: {result["last_date"]}'
                     )
-                    logger.info(f'Inserted last_date: {result["last_date"]}')
+                    logger.info('Inserted last_date: %s', result['last_date'])
                     send_notification(topic, notification_message)
                     save_notification(topic, notification_message, self.__class__.__name__)
 
