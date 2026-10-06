@@ -45,7 +45,7 @@ class Destinations(BaseApp):
         topic = self.args.topic
         api_destinations = self.get_destinations(from_airport)
         if api_destinations is None:
-            print(f'Failed to fetch destinations for {from_airport}, skipping')
+            self.logger.error('Failed to fetch destinations for %s, skipping', from_airport)
             return
 
         destinations = [dest['arrivalAirport']['code'] for dest in api_destinations]
@@ -53,7 +53,7 @@ class Destinations(BaseApp):
         new_destinations = set(destinations) - set(db_destinations)
         removed_destinations = set(db_destinations) - set(destinations)
         if new_destinations:
-            print(f'New destinations found for {from_airport}: {new_destinations}')
+            self.logger.info('New destinations found for %s: %s', from_airport, new_destinations)
             with get_db_connection() as conn, conn.cursor() as cur:
                 for dest in new_destinations:
                     cur.execute(
@@ -65,10 +65,11 @@ class Destinations(BaseApp):
                         params={'from_airport': from_airport, 'to_airport': dest},
                     )
             message = f'New destinations found for {from_airport}: {new_destinations}'
+            self.logger.info('Sending notification for %s: %s', from_airport, message)
             send_notification(topic, message)
             save_notification(topic, message, self.__class__.__name__)
         if removed_destinations:
-            print(f'Removed destinations for {from_airport}: {removed_destinations}')
+            self.logger.info('Removed destinations for %s: %s', from_airport, removed_destinations)
             with get_db_connection() as conn, conn.cursor() as cur:
                 for dest in removed_destinations:
                     cur.execute(

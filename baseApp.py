@@ -1,10 +1,11 @@
 import argparse
 
+from custom_logging import get_custom_logger
+
 
 class BaseApp:
     def __init__(self):
-        # Your initialization code
-        pass
+        self.logger = get_custom_logger(self.__class__.__name__)
 
     def __enter__(self):
         # This code runs when entering the 'with' block

@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 import httpx
 
@@ -6,6 +7,8 @@ from baseApp import BaseApp
 from connections import PROVIDER_API
 from db.connection import get_db_connection
 from notifications import save_notification, send_notification
+
+logger = logging.getLogger('app_logger')
 
 
 class Availabilities(BaseApp):
@@ -78,7 +81,7 @@ class Availabilities(BaseApp):
                 )
                 result = cur.fetchone()
                 if result is not None:
-                    print('Updated last_date:', result['last_date'])
+                    logger.info('Updated last_date: %s', result['last_date'])
                     notification_message = (
                         f'New availability found for {from_airport} to {to_airport}: {result["last_date"]}'
                     )
@@ -99,7 +102,7 @@ class Availabilities(BaseApp):
                     notification_message = (
                         f'New availability found for {from_airport} to {to_airport}: {result["last_date"]}'
                     )
-                    print('Inserted last_date:', result['last_date'])
+                    logger.info('Inserted last_date: %s', result['last_date'])
                     send_notification(topic, notification_message)
                     save_notification(topic, notification_message, self.__class__.__name__)
 
