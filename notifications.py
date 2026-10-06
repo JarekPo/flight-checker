@@ -1,13 +1,16 @@
 import httpx
 
 from connections import get_ntf_connection
+from custom_logging import get_custom_logger
 from db.connection import get_db_connection
+
+logger = get_custom_logger('Notifications')
 
 
 def send_notification(topic, message):
     ntf_url = f'{get_ntf_connection(topic)}{message}'
     httpx.get(ntf_url, timeout=10)
-    print(f'Notification: {message}')
+    logger.info(f'Notification: {message}')
 
 
 def save_notification(topic, message, script_name):
@@ -25,4 +28,4 @@ def save_notification(topic, message, script_name):
         cur.execute(query, params=params)
         result = cur.fetchone()
         if result is not None:
-            print(f'Notification saved: {message}')
+            logger.info(f'Notification saved: {message}')
