@@ -1,33 +1,11 @@
-import httpx
-
-from baseApp import BaseApp
-from connections import PROVIDER_API
+from arg_registry_app import ArgRegistryApp
 from db.connection import get_db_connection
 from notifications import save_notification, send_notification
+from provider_api import get_destinations
 
 
-class Destinations(BaseApp):
-    def add_args(self):
-        parser = super().add_args()
-        parser.add_argument(
-            '--from_a',
-            required=True,
-            help='Departure airport IATA code',
-        )
-        parser.add_argument(
-            '--topic',
-            required=True,
-            help='Notification topic',
-        )
-        return parser
-
-    def get_destinations(self, airport_code):
-        destinations = httpx.get(
-            f'{PROVIDER_API}api/views/locate/searchWidget/routes/en/airport/{airport_code}', timeout=10
-        )
-        if destinations.status_code == 200:
-            return destinations.json()
-        return None
+class Destinations(ArgRegistryApp):
+    use_args = ('from-airport', 'topic')
 
     def list_destinations(self, airport_code):
         query = """
@@ -41,9 +19,9 @@ class Destinations(BaseApp):
             return [row['to_airport'] for row in cur.fetchall()]
 
     def main(self):
-        from_airport = self.args.from_a
+        from_airport = self.args.from_airport
         topic = self.args.topic
-        api_destinations = self.get_destinations(from_airport)
+        api_destinations = get_destinations(from_airport)
         if api_destinations is None:
             self.logger.error('Failed to fetch destinations for %s, skipping', from_airport)
             return
@@ -60,7 +38,8 @@ class Destinations(BaseApp):
                         """
                         INSERT INTO destinations (from_airport, to_airport)
                         VALUES (%(from_airport)s, %(to_airport)s)
-                        ON CONFLICT (from_airport, to_airport) WHERE is_active DO NOTHING
+                        ON CONFLICT (from_airport, to_airport)
+                        DO UPDATE SET is_active = true, updated_at = now()
                         """,
                         params={'from_airport': from_airport, 'to_airport': dest},
                     )
