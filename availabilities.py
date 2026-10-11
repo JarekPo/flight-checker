@@ -1,35 +1,16 @@
 import datetime
 import logging
 
-import httpx
-
-from baseApp import BaseApp
-from connections import PROVIDER_API
+from arg_registry_app import ArgRegistryApp
 from db.connection import get_db_connection
 from notifications import save_notification, send_notification
+from provider_api import get_availabilities
 
 logger = logging.getLogger('app_logger')
 
 
-class Availabilities(BaseApp):
-    def add_args(self):
-        parser = super().add_args()
-        parser.add_argument(
-            '--from_a',
-            required=True,
-            help='Departure airport IATA code',
-        )
-        parser.add_argument(
-            '--to_a',
-            required=True,
-            help='Arrival airport IATA code',
-        )
-        parser.add_argument(
-            '--topic',
-            required=True,
-            help='Notification topic',
-        )
-        return parser
+class Availabilities(ArgRegistryApp):
+    use_args = ('from-airport', 'to-airport', 'topic')
 
     def get_last_date(self, params):
         query = """
@@ -42,22 +23,14 @@ class Availabilities(BaseApp):
             cur.execute(query, params=params)
             return cur.fetchone()
 
-    def get_availabilities(self, departure_airport, arrival_airport):
-        availabilities = httpx.get(
-            f'{PROVIDER_API}api/farfnd/3/oneWayFares/{departure_airport}/{arrival_airport}/availabilities', timeout=10
-        )
-        if availabilities.status_code == 200:
-            return availabilities.json()
-        return None
-
     def main(self):
-        from_airport = self.args.from_a
-        to_airport = self.args.to_a
+        from_airport = self.args.from_airport
+        to_airport = self.args.to_airport
         topic = self.args.topic
         params = {'from_airport': from_airport, 'to_airport': to_airport}
         result = self.get_last_date(params)
         current_last_date = result['last_date'] if result is not None else None
-        api_availabilities = self.get_availabilities(from_airport, to_airport)
+        api_availabilities = get_availabilities(from_airport, to_airport)
         api_last_date_string = api_availabilities[-1] if api_availabilities else None
         api_last_date = datetime.date.fromisoformat(api_last_date_string) if api_last_date_string else None
 

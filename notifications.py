@@ -26,4 +26,3 @@ def save_notification(topic, message, script_name):
 
     with get_db_connection() as conn, conn.cursor() as cur:
         cur.execute(query, params=params)
-    logger.info('Notification saved: %s', message)
