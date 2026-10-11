@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import httpx
 
 from connections import PROVIDER_API
@@ -29,5 +31,5 @@ def get_one_way_fares(month, from_airport, to_airport):
         timeout=10,
     )
     if response.status_code == 200:
-        return response.json()
+        return response.json(parse_float=Decimal)
     return None
