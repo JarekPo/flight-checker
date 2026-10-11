@@ -66,7 +66,8 @@ class FaresPerMonth(ArgRegistryApp):
 
         for metric in fare_metrics:
             if last_fares[0][metric] > fares[metric]:
-                cheaper_fares.append(metric)
+                # cheaper_fares.append(metric)
+                list.extend(cheaper_fares, metric)
 
         return fares, cheaper_fares, currency
 
@@ -77,7 +78,6 @@ class FaresPerMonth(ArgRegistryApp):
         months = self.get_available_months(from_airport, to_airport)
         for month in months:
             fares, cheaper_fares, currency = self.check_fares(month, from_airport, to_airport)
-            print('***cheaper fares***', cheaper_fares)
             if cheaper_fares:
                 mapped_fares = {metric: fares[metric] for metric in cheaper_fares}
                 with get_db_connection() as conn, conn.cursor() as cur:
@@ -103,13 +103,6 @@ class FaresPerMonth(ArgRegistryApp):
                 )
                 send_notification(topic, message)
                 save_notification(topic, message, self.__class__.__name__)
-                logger.info(
-                    'New cheaper fares found for %s to %s in month %s: %s',
-                    from_airport,
-                    to_airport,
-                    month,
-                    mapped_fares,
-                )
 
 
 if __name__ == '__main__':
