@@ -1,9 +1,12 @@
 import datetime
+import logging
 
 from arg_registry_app import ArgRegistryApp
 from db.connection import get_db_connection
 from notifications import save_notification, send_notification
 from provider_api import get_availabilities
+
+logger = logging.getLogger('app_logger')
 
 
 class Availabilities(ArgRegistryApp):
@@ -28,7 +31,7 @@ class Availabilities(ArgRegistryApp):
         result = self.get_last_date(params)
         current_last_date = result['last_date'] if result is not None else None
         api_availabilities = get_availabilities(from_airport, to_airport)
-        api_last_date_string = api_availabilities[-1] if api_availabilities else None
+        api_last_date_string = max(api_availabilities) if api_availabilities else None
         api_last_date = datetime.date.fromisoformat(api_last_date_string) if api_last_date_string else None
 
         update_params = {
@@ -51,6 +54,7 @@ class Availabilities(ArgRegistryApp):
                 )
                 result = cur.fetchone()
                 if result is not None:
+                    logger.info('Updated last_date: %s', result['last_date'])
                     notification_message = (
                         f'New availability found for {from_airport} to {to_airport}: {result["last_date"]}'
                     )
@@ -71,6 +75,7 @@ class Availabilities(ArgRegistryApp):
                     notification_message = (
                         f'New availability found for {from_airport} to {to_airport}: {result["last_date"]}'
                     )
+                    logger.info('Inserted last_date: %s', result['last_date'])
                     send_notification(topic, notification_message)
                     save_notification(topic, notification_message, self.__class__.__name__)
 

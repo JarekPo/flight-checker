@@ -1,7 +1,16 @@
+import logging
+
 from arg_registry_app import ArgRegistryApp
 from db.connection import get_db_connection
 from notifications import save_notification, send_notification
 from provider_api import get_destinations
+
+logger = logging.getLogger('app_logger')
+
+
+def diff_destinations(api_codes, db_codes):
+    api, db = set(api_codes), set(db_codes)
+    return api - db, db - api
 
 
 class Destinations(ArgRegistryApp):
@@ -28,8 +37,7 @@ class Destinations(ArgRegistryApp):
 
         destinations = [dest['arrivalAirport']['code'] for dest in api_destinations]
         db_destinations = self.list_destinations(from_airport)
-        new_destinations = set(destinations) - set(db_destinations)
-        removed_destinations = set(db_destinations) - set(destinations)
+        new_destinations, removed_destinations = diff_destinations(destinations, db_destinations)
         if new_destinations:
             self.logger.info('New destinations found for %s: %s', from_airport, new_destinations)
             with get_db_connection() as conn, conn.cursor() as cur:

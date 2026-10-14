@@ -1,4 +1,5 @@
 import datetime
+import logging
 import statistics
 from decimal import Decimal
 
@@ -6,6 +7,8 @@ from arg_registry_app import ArgRegistryApp
 from db.connection import get_db_connection
 from notifications import save_notification, send_notification
 from provider_api import get_availabilities, get_one_way_fares
+
+logger = logging.getLogger('app_logger')
 
 
 class FaresPerMonth(ArgRegistryApp):
@@ -88,6 +91,9 @@ class FaresPerMonth(ArgRegistryApp):
                     )
                 fares_text = ', '.join(f"'{key}': {value:.2f}" for key, value in mapped_fares.items())
                 message = f'New cheaper fares found for {from_airport} to {to_airport} in month {month}: {fares_text}'
+                self.logger.info(
+                    'Sending notification for %s to %s in month %s: %s', from_airport, to_airport, month, fares_text
+                )
                 send_notification(topic, message)
                 save_notification(topic, message, self.__class__.__name__)
 
