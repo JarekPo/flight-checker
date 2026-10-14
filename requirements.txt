@@ -1,3 +1,4 @@
 python-dotenv
 httpx
 psycopg[binary]
+pytest

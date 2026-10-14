@@ -1,12 +1,9 @@
 import datetime
-import logging
 
 from arg_registry_app import ArgRegistryApp
 from db.connection import get_db_connection
 from notifications import save_notification, send_notification
 from provider_api import get_availabilities
-
-logger = logging.getLogger('app_logger')
 
 
 class Availabilities(ArgRegistryApp):
@@ -54,7 +51,6 @@ class Availabilities(ArgRegistryApp):
                 )
                 result = cur.fetchone()
                 if result is not None:
-                    logger.info('Updated last_date: %s', result['last_date'])
                     notification_message = (
                         f'New availability found for {from_airport} to {to_airport}: {result["last_date"]}'
                     )
@@ -75,7 +71,6 @@ class Availabilities(ArgRegistryApp):
                     notification_message = (
                         f'New availability found for {from_airport} to {to_airport}: {result["last_date"]}'
                     )
-                    logger.info('Inserted last_date: %s', result['last_date'])
                     send_notification(topic, notification_message)
                     save_notification(topic, notification_message, self.__class__.__name__)
 
