@@ -71,7 +71,11 @@ class FaresPerMonth(ArgRegistryApp):
             one_way_fares = get_one_way_fares(month, from_airport, to_airport)
             fares, cheaper_fares, currency = self.check_fares(last_fares, one_way_fares)
             if cheaper_fares:
-                mapped_fares = {metric: fares[metric] for metric in cheaper_fares}
+                mapped_fares = {
+                    metric: {'curr': fares[metric], 'prev': last_fares[0].get(metric, 0) if last_fares else 0}
+                    for metric in cheaper_fares
+                }
+
                 with get_db_connection() as conn, conn.cursor() as cur:
                     cur.execute(
                         """
@@ -89,8 +93,12 @@ class FaresPerMonth(ArgRegistryApp):
                             'median_fare': fares['median_fare'],
                         },
                     )
-                fares_text = ', '.join(f"'{key}': {value:.2f}" for key, value in mapped_fares.items())
-                message = f'New cheaper fares found for {from_airport} to {to_airport} in month {month}: {fares_text}'
+
+                fares_dict = {
+                    metric: {f'{data["prev"]:.2f} -> {data["curr"]:.2f}'} for metric, data in mapped_fares.items()
+                }
+                fares_text = str(fares_dict)
+                message = f'{from_airport} to {to_airport} in month {month}: {fares_text}'
                 self.logger.info(
                     'Sending notification for %s to %s in month %s: %s', from_airport, to_airport, month, fares_text
                 )
