@@ -8,7 +8,7 @@ from destinations import diff_destinations
     [
         (['DUB', 'STN'], ['STN', 'BCN'], {'DUB'}, {'BCN'}),
         (['DUB'], ['DUB'], set(), set()),
-        ([], ['DUB'], set(), {'DUB'}),  # documents today's behavior: an empty API answer removes everything
+        ([], ['DUB'], set(), {'DUB'}),
     ],
 )
 def test_diff_destinations(api, db, new, removed):

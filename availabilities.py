@@ -1,12 +1,35 @@
 import datetime
-import logging
+from typing import LiteralString
 
 from arg_registry_app import ArgRegistryApp
 from db.connection import get_db_connection
 from notifications import save_notification, send_notification
 from provider_api import get_availabilities
 
-logger = logging.getLogger('app_logger')
+SAVE_QUERIES: dict[str, LiteralString] = {
+    'insert': """
+        INSERT INTO availabilities (from_airport, to_airport, last_date)
+        VALUES (%(from_airport)s, %(to_airport)s, %(last_date)s)
+        RETURNING last_date
+    """,
+    'update': """
+        UPDATE availabilities
+        SET last_date = %(last_date)s
+        WHERE from_airport = %(from_airport)s
+        AND to_airport = %(to_airport)s
+        RETURNING last_date
+    """,
+}
+
+
+def decide_action(current_last_date, api_last_date):
+    if api_last_date is None:
+        return None
+    if current_last_date is None:
+        return 'insert'
+    if api_last_date > current_last_date:
+        return 'update'
+    return None
 
 
 class Availabilities(ArgRegistryApp):
@@ -18,7 +41,6 @@ class Availabilities(ArgRegistryApp):
         FROM availabilities
         WHERE from_airport = %(from_airport)s AND to_airport = %(to_airport)s
         """
-
         with get_db_connection() as conn, conn.cursor() as cur:
             cur.execute(query, params=params)
             return cur.fetchone()
@@ -27,57 +49,32 @@ class Availabilities(ArgRegistryApp):
         from_airport = self.args.from_airport
         to_airport = self.args.to_airport
         topic = self.args.topic
+        route = f'{from_airport} to {to_airport}'
         params = {'from_airport': from_airport, 'to_airport': to_airport}
-        result = self.get_last_date(params)
-        current_last_date = result['last_date'] if result is not None else None
-        api_availabilities = get_availabilities(from_airport, to_airport)
-        api_last_date_string = max(api_availabilities) if api_availabilities else None
+
+        row = self.get_last_date(params)
+        current_last_date = row['last_date'] if row is not None else None
+
+        api_dates = get_availabilities(from_airport, to_airport)
+        api_last_date_string = max(api_dates or [], default=None)
         api_last_date = datetime.date.fromisoformat(api_last_date_string) if api_last_date_string else None
 
-        update_params = {
-            'from_airport': from_airport,
-            'to_airport': to_airport,
-            'last_date': api_last_date,
-        }
+        action = decide_action(current_last_date, api_last_date)
+        if action is None:
+            self.logger.info(f'No new availability for {route}')
+            return
 
-        if current_last_date and api_last_date and current_last_date < api_last_date:
-            with get_db_connection() as conn, conn.cursor() as cur:
-                cur.execute(
-                    """
-                    UPDATE availabilities
-                    SET last_date = %(last_date)s
-                    WHERE from_airport = %(from_airport)s
-                    AND to_airport = %(to_airport)s
-                    RETURNING last_date
-                    """,
-                    params=update_params,
-                )
-                result = cur.fetchone()
-                if result is not None:
-                    logger.info('Updated last_date: %s', result['last_date'])
-                    notification_message = (
-                        f'New availability found for {from_airport} to {to_airport}: {result["last_date"]}'
-                    )
-                    send_notification(topic, notification_message)
-                    save_notification(topic, notification_message, self.__class__.__name__)
-        elif not current_last_date and api_last_date:
-            with get_db_connection() as conn, conn.cursor() as cur:
-                cur.execute(
-                    """
-                    INSERT INTO availabilities (from_airport, to_airport, last_date)
-                    VALUES (%(from_airport)s, %(to_airport)s, %(last_date)s)
-                    RETURNING last_date
-                    """,
-                    params=update_params,
-                )
-                result = cur.fetchone()
-                if result is not None:
-                    notification_message = (
-                        f'New availability found for {from_airport} to {to_airport}: {result["last_date"]}'
-                    )
-                    logger.info('Inserted last_date: %s', result['last_date'])
-                    send_notification(topic, notification_message)
-                    save_notification(topic, notification_message, self.__class__.__name__)
+        with get_db_connection() as conn, conn.cursor() as cur:
+            cur.execute(SAVE_QUERIES[action], params={**params, 'last_date': api_last_date})
+            saved = cur.fetchone()
+        if saved is None:
+            self.logger.error(f'Database did not return a row after {action} for {route}')
+            return
+
+        self.logger.info(f'Saved last_date for {route} ({action}): {saved["last_date"]}')
+        message = f'New availability found for {route}: {saved["last_date"]}'
+        send_notification(topic, message)
+        save_notification(topic, message, self.__class__.__name__)
 
 
 if __name__ == '__main__':
