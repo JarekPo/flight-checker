@@ -72,7 +72,7 @@ class Availabilities(ArgRegistryApp):
             return
 
         self.logger.info(f'Saved last_date for {route} ({action}): {saved["last_date"]}')
-        message = f'New availability found for {route}: {saved["last_date"]}'
+        message = f'New availability found for {route}: {current_last_date} -> {saved["last_date"]}'
         send_notification(topic, message)
         save_notification(topic, message, self.__class__.__name__)
 
